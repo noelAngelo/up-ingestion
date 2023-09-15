@@ -18,16 +18,16 @@ class MinIOHook(BaseHook):
     # provide the connection type
     conn_type = "http"
     # provide the name of the hook
-    hook_name = "MinioHook"
+    hook_name = "Minio"
 
     # define the .__init__() method that runs when the DAG is parsed
     def __init__(
-            self, my_conn_id: str = default_conn_name, *args, **kwargs
+            self, minio_conn_id: str = default_conn_name, *args, **kwargs
     ) -> None:
         # initialize the parent hook
         super().__init__(*args, **kwargs)
         # assign class variables
-        self.my_conn_id = my_conn_id
+        self.minio_conn_id = minio_conn_id
         # (optional) call the '.get_client()' method upon initialization
         self.get_client()
 

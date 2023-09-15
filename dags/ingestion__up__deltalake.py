@@ -1,12 +1,10 @@
-import json
-import requests
-from minio import Minio
 from pendulum import datetime
 from airflow.decorators import (
     dag,
     task
 )  # DAG and task decorators for interfacing with the TaskFlow API
-from airflow.exceptions import AirflowSkipException
+from airflow.operators.empty import EmptyOperator
+from include.operators._minio import MinioCreateBucketOperator
 
 
 @dag(
@@ -18,7 +16,8 @@ from airflow.exceptions import AirflowSkipException
     start_date=datetime(2023, 1, 1),
     catchup=False,
     default_args={
-        "retries": 1
+        "retries": 1,
+        "max_active_runs": 1
     },
     tags=["ingestion"]
 )
@@ -30,22 +29,16 @@ def ingestion__up__deltalake():
     and storing its results in an object store or delta lake.
     """
 
-    @task()
-    def create_bucket():
-        """
-        #### setup task
-        A simple setup task to build the bucket for our delta lake
-        """
-        bucket_name = 'sources-prod-up'
-        client = Minio("192.168.0.21:9000", access_key='minio', secret_key='minio123', secure=False)
-        found = client.bucket_exists(bucket_name)
-        if not found:
-            client.make_bucket(bucket_name)
-        else:
-            print(f"Bucket <{bucket_name}> already exists")
-            raise AirflowSkipException
+    # include Ops
+    create_bucket_op = MinioCreateBucketOperator(
+        task_id='create_bucket',
+        minio_conn_id='minio_default',
+        bucket_name='sources-prod-up'
+    )
+    start = EmptyOperator(task_id='start')
 
-    create_bucket().as_setup()
+    # define workflow
+    start >> create_bucket_op.as_setup()
 
 
 ingestion__up__deltalake()
