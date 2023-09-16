@@ -1,10 +1,8 @@
-# import the hook to inherit from
 from airflow.hooks.base import BaseHook
 from minio import Minio
 from urllib.parse import urlparse
 
 
-# define the class inheriting from an existing hook class
 class MinIOHook(BaseHook):
     """
     Interact with MinIO API.
@@ -28,17 +26,34 @@ class MinIOHook(BaseHook):
         super().__init__(*args, **kwargs)
         # assign class variables
         self.minio_conn_id = minio_conn_id
-        # (optional) call the '.get_client()' method upon initialization
-        self.get_client()
+        self.minio_conn = self.get_connection(minio_conn_id)
 
-    def get_conn(self):
-        """Function that initiates a new connection to MinIO."""
-        # retrieve the passed connection id
-        conn_id = getattr(self, self.conn_name_attr)
-        # get the connection object from the Airflow connection
-        conn = self.get_connection(conn_id)
+    @staticmethod
+    def _parse_host(host: str):
+        """
+        The purpose of this function is to be robust to improper connections
+        settings provided by users, specifically in the host field.
 
-        return conn
+        For example -- when users supply ``https://xx.minio.com`` as the
+        host, we must strip out the protocol to get the host.::
+
+            h = MinioHook()
+            assert h._parse_host('https://xx.minio.com') == \
+                'minio.com'
+
+        In the case where users supply the correct ``xx.minio.com`` as the
+        host, this function is a no-op.::
+
+            assert h._parse_host('xx.minio.com') == 'xx.minio.com'
+
+        """
+        urlparse_host = urlparse(host).hostname
+        if urlparse_host:
+            # In this case, host = https://xx.minio.com
+            return urlparse_host
+        else:
+            # In this case, host = xx.minio.com
+            return host
 
     def get_client(self):
         """Function that initiates a MinIO client"""
@@ -47,9 +62,10 @@ class MinIOHook(BaseHook):
         # get the connection object from the Airflow connection
         conn = self.get_connection(conn_id)
         # build minio client
-        host = urlparse(conn.host).hostname
+        host = self._parse_host(conn.host)
         client = Minio(endpoint=f'{host}:{conn.port}',
                        access_key=conn.login,
                        secret_key=conn.password,
                        secure=False)
         return client
+

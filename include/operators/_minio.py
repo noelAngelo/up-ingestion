@@ -1,6 +1,5 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING, Any, Sequence
-from functools import cached_property
 
 from airflow.utils.context import Context
 from airflow.exceptions import AirflowSkipException

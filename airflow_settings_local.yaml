@@ -14,10 +14,10 @@ airflow:
       conn_login: minio
       conn_password: minio123
       conn_port: 9000
-    - conn_id:
-      conn_type:
-      conn_host:
-      conn_schema:
+    - conn_id: up_default
+      conn_type: http
+      conn_host: https://api.up.com.au
+      conn_schema: https
       conn_login:
       conn_password:
       conn_port:

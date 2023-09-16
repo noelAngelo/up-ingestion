@@ -5,6 +5,7 @@ from airflow.decorators import (
 )  # DAG and task decorators for interfacing with the TaskFlow API
 from airflow.operators.empty import EmptyOperator
 from include.operators._minio import MinioCreateBucketOperator
+from include.operators.up import UpOperator
 
 
 @dag(
@@ -35,10 +36,18 @@ def ingestion__up__deltalake():
         minio_conn_id='minio_default',
         bucket_name='sources-prod-up'
     )
+
+    check_conn_op = UpOperator(
+        task_id='check_up_conn',
+        method='GET',
+        endpoint='util/ping',
+        up_conn_id='up_default',
+    )
+
     start = EmptyOperator(task_id='start')
 
     # define workflow
-    start >> create_bucket_op.as_setup()
+    start >> [create_bucket_op, check_conn_op]
 
 
 ingestion__up__deltalake()
