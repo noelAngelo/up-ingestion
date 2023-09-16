@@ -1,12 +1,18 @@
-from pendulum import datetime
+from io import BytesIO
+from datetime import datetime
 from airflow.decorators import (
     dag,
     task
 )  # DAG and task decorators for interfacing with the TaskFlow API
-from airflow.operators.empty import EmptyOperator
+from airflow.models.baseoperator import chain
+from include.hooks.up import UpHook
+from include.hooks._minio import MinIOHook
 from include.operators._minio import MinioCreateBucketOperator
 from include.operators.up import UpOperator
 
+# GLOBALS
+MINIO_SOURCE_BUCKET_NAME = 'sources-prod-up'
+UP_ENDPOINTS = ['accounts', 'categories']
 
 @dag(
     # This defines how often your DAG will run, or the schedule by which your DAG runs. In this case, this DAG
@@ -30,11 +36,38 @@ def ingestion__up__deltalake():
     and storing its results in an object store or delta lake.
     """
 
+    up_tasks = []
+    for e in UP_ENDPOINTS:
+        @task(trigger_rule='none_failed', task_id=f'collect_up_{e}')
+        def up_to_minio(endpoint: str, query_params: dict = None):
+            # instantiate hooks
+            minio_hook = MinIOHook(minio_conn_id='minio_default')
+            minio_client = minio_hook.get_client()
+            up_hook = UpHook(up_conn_id='up_default')
+
+            # collect data from endpoint
+            response = up_hook.do_api_call(endpoint_info=('GET', endpoint), json=query_params)
+
+            # store data
+            date_format = "%a, %d %b %Y %H:%M:%S GMT"
+            response_date = response.headers['Date']
+            dt = datetime.strptime(response_date, date_format)
+            filename = f'{dt.year}{dt.month}{dt.day}{dt.hour}{dt.minute}{dt.second}{dt.microsecond}.json'
+
+            minio_client.put_object(
+                bucket_name=MINIO_SOURCE_BUCKET_NAME,
+                object_name=f'{endpoint}/{dt.year}-{dt.month}/{filename}',
+                length=len(response.content),
+                data=BytesIO(response.content),
+                content_type=response.headers['Content-Type']
+            )
+        up_tasks.append(up_to_minio(e))
+
     # include Ops
     create_bucket_op = MinioCreateBucketOperator(
         task_id='create_bucket',
         minio_conn_id='minio_default',
-        bucket_name='sources-prod-up'
+        bucket_name=MINIO_SOURCE_BUCKET_NAME
     )
 
     check_conn_op = UpOperator(
@@ -44,10 +77,8 @@ def ingestion__up__deltalake():
         up_conn_id='up_default',
     )
 
-    start = EmptyOperator(task_id='start')
-
     # define workflow
-    start >> [create_bucket_op, check_conn_op]
+    chain(create_bucket_op, check_conn_op, up_tasks)
 
 
 ingestion__up__deltalake()

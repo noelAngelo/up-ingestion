@@ -1,6 +1,5 @@
 from __future__ import annotations
-from typing import TYPE_CHECKING, Any, Sequence
-
+from requests.models import Response
 from airflow.utils.context import Context
 from airflow.models.baseoperator import BaseOperator
 from include.hooks.up import UpHook
@@ -39,4 +38,5 @@ class UpOperator(BaseOperator):
 
     def execute(self, context: Context) -> dict:
         hook = self._get_hook()
-        return hook.do_api_call(endpoint_info=(self.method, self.endpoint), json=self.query_params)
+        response = hook.do_api_call(endpoint_info=(self.method, self.endpoint), json=self.query_params)
+        return response.json()

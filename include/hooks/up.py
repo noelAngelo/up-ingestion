@@ -27,6 +27,7 @@ from urllib.parse import urlparse
 import requests
 from requests import PreparedRequest, exceptions as requests_exceptions
 from requests.auth import AuthBase
+from requests.models import Response
 
 from airflow import __version__
 from airflow.exceptions import AirflowException
@@ -66,7 +67,7 @@ class UpHook(BaseHook):
         self.up_conn_id = up_conn_id
         self.up_conn = self.get_connection(up_conn_id)
 
-    def do_api_call(self, endpoint_info: tuple[str, str], json: dict) -> dict:
+    def do_api_call(self, endpoint_info: tuple[str, str], json: dict) -> Response:
         """
         Utility function to perform an API call
 
@@ -100,7 +101,7 @@ class UpHook(BaseHook):
             auth=auth
         )
         response.raise_for_status()
-        return response.json()
+        return response
 
 
 class _TokenAuth(AuthBase):
