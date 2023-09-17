@@ -63,9 +63,15 @@ class MinIOHook(BaseHook):
         conn = self.get_connection(conn_id)
         # build minio client
         host = self._parse_host(conn.host)
-        client = Minio(endpoint=f'{host}:{conn.port}',
-                       access_key=conn.login,
-                       secret_key=conn.password,
-                       secure=False)
+        if conn.port:
+            client = Minio(endpoint=f'{host}:{conn.port}',
+                           access_key=conn.login,
+                           secret_key=conn.password,
+                           secure=False)
+        else:
+            client = Minio(endpoint=f'{host}',
+                           access_key=conn.login,
+                           secret_key=conn.password,
+                           secure=True)
         return client
 

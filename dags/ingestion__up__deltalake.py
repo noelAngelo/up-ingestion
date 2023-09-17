@@ -12,7 +12,7 @@ from include.operators.up import UpOperator
 
 # GLOBALS
 MINIO_SOURCE_BUCKET_NAME = 'sources-prod-up'
-UP_ENDPOINTS = ['accounts', 'categories']
+UP_ENDPOINTS = ['accounts', 'categories', 'tags']
 
 @dag(
     # This defines how often your DAG will run, or the schedule by which your DAG runs. In this case, this DAG
