@@ -20,17 +20,19 @@ DELTA_BUCKET = 'deltalake'
 )
 def operations__setup__deltalake():
     create_delta_bucket = MinioCreateBucketOperator(
-        task_id='create_delta_bucket',
+        task_id='create_deltalake_bucket',
         minio_conn_id='minio_default',
         bucket_name=DELTA_BUCKET
     )
 
     create_up_schema = TrinoOperator(
         task_id='create_deltalake_schema',
+        trino_conn_id="trino_default",
         sql=f"""
         CREATE SCHEMA IF NOT EXISTS {DELTA_CATALOG}.up
-        WITH (location = 's3a://{DELTA_BUCKET}/up');
-        """
+        WITH (location = 's3a://{DELTA_BUCKET}/up')
+        """,
+        trigger_rule="none_failed"
     )
 
     # define workflow
