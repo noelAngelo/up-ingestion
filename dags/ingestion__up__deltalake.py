@@ -5,6 +5,7 @@ from airflow.decorators import (
     task
 )  # DAG and task decorators for interfacing with the TaskFlow API
 from airflow.models.baseoperator import chain
+from airflow.providers.apache.spark.operators.spark_submit import SparkSubmitOperator
 from include.hooks.up import UpHook
 from include.hooks._minio import MinIOHook
 from include.operators._minio import MinioCreateBucketOperator
@@ -17,7 +18,7 @@ UP_ENDPOINTS = ['accounts', 'categories', 'tags']
 @dag(
     # This defines how often your DAG will run, or the schedule by which your DAG runs. In this case, this DAG
     # will run daily
-    schedule='@daily',
+    schedule='@once',
     # This DAG is set to run for the first time on January 1, 2023. Best practice is to use a static
     # start_date. Subsequent DAG runs are instantiated based on the schedule
     start_date=datetime(2023, 1, 1),
@@ -36,7 +37,8 @@ def ingestion__up__deltalake():
     and storing its results in an object store or delta lake.
     """
 
-    up_tasks = []
+    collect_tasks = []
+    ingest_tasks = []
     for e in UP_ENDPOINTS:
         @task(trigger_rule='none_failed', task_id=f'collect_up_{e}')
         def up_to_minio(endpoint: str, query_params: dict = None):
@@ -61,7 +63,12 @@ def ingestion__up__deltalake():
                 data=BytesIO(response.content),
                 content_type=response.headers['Content-Type']
             )
-        up_tasks.append(up_to_minio(e))
+
+        collect_tasks.append(up_to_minio(e))
+        ingest_tasks.append(SparkSubmitOperator(
+            task_id=f'ingest_up_{e}',
+            application="${SPARK_HOME}/examples/src/main/python/pi.py"
+        ))
 
     # include Ops
     create_bucket_op = MinioCreateBucketOperator(
@@ -78,7 +85,7 @@ def ingestion__up__deltalake():
     )
 
     # define workflow
-    chain(create_bucket_op, check_conn_op, up_tasks)
+    chain(create_bucket_op, check_conn_op, collect_tasks, ingest_tasks)
 
 
 ingestion__up__deltalake()

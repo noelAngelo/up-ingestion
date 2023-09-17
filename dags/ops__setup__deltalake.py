@@ -6,7 +6,7 @@ from datetime import datetime
 # GLOBALS
 DELTA_CATALOG = 'delta'
 DELTA_BUCKET = 'deltalake'
-
+ARCHIVE_BUCKET = 'archives'
 
 @dag(
     schedule="@once",
@@ -19,6 +19,13 @@ DELTA_BUCKET = 'deltalake'
     tags=["operations"]
 )
 def operations__setup__deltalake():
+
+    create_archive_bucket = MinioCreateBucketOperator(
+        task_id='create_archive_bucket',
+        minio_conn_id='minio_default',
+        bucket_name=ARCHIVE_BUCKET
+    )
+
     create_delta_bucket = MinioCreateBucketOperator(
         task_id='create_deltalake_bucket',
         minio_conn_id='minio_default',
@@ -36,7 +43,7 @@ def operations__setup__deltalake():
     )
 
     # define workflow
-    create_delta_bucket >> create_up_schema
+    [create_archive_bucket, create_delta_bucket] >> create_up_schema
 
 
 operations__setup__deltalake()
