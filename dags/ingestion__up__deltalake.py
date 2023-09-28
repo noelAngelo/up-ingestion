@@ -5,7 +5,7 @@ from airflow.decorators import (
     task
 )  # DAG and task decorators for interfacing with the TaskFlow API
 from airflow.models.baseoperator import chain
-from airflow.providers.apache.spark.operators.spark_submit import SparkSubmitOperator
+from airflow.operators.empty import EmptyOperator
 from include.hooks.up import UpHook
 from include.hooks._minio import MinIOHook
 from include.operators._minio import MinioCreateBucketOperator
@@ -14,6 +14,7 @@ from include.operators.up import UpOperator
 # GLOBALS
 MINIO_SOURCE_BUCKET_NAME = 'sources-prod-up'
 UP_ENDPOINTS = ['accounts', 'categories', 'tags']
+
 
 @dag(
     # This defines how often your DAG will run, or the schedule by which your DAG runs. In this case, this DAG
@@ -65,9 +66,8 @@ def ingestion__up__deltalake():
             )
 
         collect_tasks.append(up_to_minio(e))
-        ingest_tasks.append(SparkSubmitOperator(
+        ingest_tasks.append(EmptyOperator(
             task_id=f'ingest_up_{e}',
-            application="${SPARK_HOME}/examples/src/main/python/pi.py"
         ))
 
     # include Ops
